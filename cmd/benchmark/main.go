@@ -1,49 +1,76 @@
-// Package main provides a command-line tool for benchmarking TCP and QUIC protocols.
+// main パッケージは、TCPとQUICプロトコルのベンチマークを行うためのコマンドラインツールを提供します。
 package main
 
 import (
-	"flag" // flag package implements command-line flag parsing.
-	"log"  // log package implements a simple logging package.
+	"flag"
+	"log"
+	"time"
 
+	"github.com/Shinonome517/tcp-quic-bench/internal/client"
 	"github.com/Shinonome517/tcp-quic-bench/internal/data"
 	"github.com/Shinonome517/tcp-quic-bench/internal/server"
 )
 
-// main is the entry point of the application.
+// main はアプリケーションのエントリーポイントです。
 func main() {
-	// Define command-line flags.
-	mode := flag.String("mode", "server", "server or client")       // mode flag to specify whether to run as a server or client.
-	proto := flag.String("proto", "quic", "tcp or quic")            // proto flag to specify the protocol (tcp or quic).
-	addr := flag.String("addr", "0.0.0.0:4242", "address and port") // addr flag to specify the address and port to listen on or connect to.
-	flag.Parse()                                                    // Parse the command-line flags.
+	// コマンドラインフラグを定義します。
+	mode := flag.String("mode", "server", "server or client")
+	proto := flag.String("proto", "quic", "tcp or quic")
+	addr := flag.String("addr", "0.0.0.0:4242", "address and port")
+	flag.Parse()
 
-	// Check the mode and execute the corresponding logic.
-	if *mode == "server" {
-		log.Println("Generating 1GB of random data...")
-		// Generate 1GB of random data for benchmarking.
-		benchmarkData, err := data.Generate()
-		if err != nil {
-			log.Fatalf("Failed to generate data: %v", err) // Log and exit if data generation fails.
-		}
-		log.Println("Data generation complete.")
-
-		// Start the server based on the specified protocol.
-		switch *proto {
-		case "tcp":
-			log.Printf("Starting TCP server on %s...", *addr)
-			if err := server.TCPServer(*addr, benchmarkData); err != nil {
-				log.Fatalf("TCP server failed: %v", err) // Log and exit if TCP server fails.
-			}
-		case "quic":
-			log.Printf("Starting QUIC server on %s...", *addr)
-			if err := server.QUICServer(*addr, benchmarkData); err != nil {
-				log.Fatalf("QUIC server failed: %v", err) // Log and exit if QUIC server fails.
-			}
-		default:
-			log.Fatalf("Unknown protocol: %s", *proto) // Log and exit for unknown protocols.
-		}
-	} else {
-		// Client mode is not yet implemented.
-		log.Println("Client mode is not implemented yet.")
+	// モードを確認し、対応するロジックを実行します。
+	switch *mode {
+	case "server":
+		runServer(*proto, *addr)
+	case "client":
+		runClient(*proto, *addr)
+	default:
+		log.Fatalf("Unknown mode: %s. Please use 'server' or 'client'.", *mode)
 	}
+}
+
+func runServer(proto, addr string) {
+	log.Println("Generating 1GB of random data...")
+	benchmarkData, err := data.Generate()
+	if err != nil {
+		log.Fatalf("Failed to generate data: %v", err)
+	}
+	log.Println("Data generation complete.")
+
+	switch proto {
+	case "tcp":
+		log.Printf("Starting TCP server on %s...", addr)
+		if err := server.RunTCPServer(addr, benchmarkData); err != nil {
+			log.Fatalf("TCP server failed: %v", err)
+		}
+	case "quic":
+		log.Printf("Starting QUIC server on %s...", addr)
+		if err := server.RunQUICServer(addr, benchmarkData); err != nil {
+			log.Fatalf("QUIC server failed: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown protocol: %s", proto)
+	}
+}
+
+func runClient(proto, addr string) {
+	var totalBytes int64
+	var duration time.Duration
+	var err error
+
+	switch proto {
+	case "tcp":
+		totalBytes, duration, err = client.RunTCPClient(addr)
+	case "quic":
+		totalBytes, duration, err = client.RunQUICClient(addr)
+	default:
+		log.Fatalf("Unknown protocol: %s", proto)
+	}
+
+	if err != nil {
+		log.Fatalf("Client run failed: %v", err)
+	}
+
+	client.PrintResults(totalBytes, duration)
 }

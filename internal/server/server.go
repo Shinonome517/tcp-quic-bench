@@ -1,4 +1,4 @@
-// Package server provides functionality for creating TCP and QUIC servers.
+// server パッケージは、TCPおよびQUICサーバーを作成するための機能を提供します。
 package server
 
 import (
@@ -7,15 +7,15 @@ import (
 	"log"
 	"net"
 	"net/http"
-	// Blank import for pprof. This is the standard way to include pprof.
+	// pprofのためのブランクインポート。これはpprofをインクルードする標準的な方法です。
 	_ "net/http/pprof"
 
 	"github.com/quic-go/quic-go"
 	"github.com/Shinonome517/tcp-quic-bench/internal/tls"
 )
 
-// pprofServer starts an HTTP server on localhost:6060 to serve pprof data.
-// This function blocks, so it should be run in a separate goroutine.
+// pprofServer は、pprofデータを提供するためにlocalhost:6060でHTTPサーバーを開始します。
+// この関数はブロッキングするため、別のゴルーチンで実行する必要があります。
 func pprofServer() {
 	log.Println("Starting pprof server on :6060")
 	if err := http.ListenAndServe("localhost:6060", nil); err != nil {
@@ -23,22 +23,22 @@ func pprofServer() {
 	}
 }
 
-// TCPServer starts a TCP server on the given address. It sends the provided data
-// to any client that connects.
-func TCPServer(addr string, data []byte) error {
-	// Start the pprof server in a separate goroutine so it doesn't block.
+// RunTCPServer は、指定されたアドレスでTCPサーバーを開始します。接続してきたクライアントに
+// 提供されたデータを送信します。
+func RunTCPServer(addr string, data []byte) error {
+	// pprofサーバーを別のゴルーチンで開始し、ブロッキングしないようにします。
 	go pprofServer()
 
-	// Listen for incoming TCP connections.
+	// TCP接続をリッスンします。
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
-	// Close the listener when the application closes.
+	// アプリケーション終了時にリスナーをクローズします。
 	defer l.Close()
 	log.Printf("TCP server listening on %s", addr)
 
-	// Loop forever, accepting new connections.
+	// 無限ループで新しい接続を受け入れます。
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -47,11 +47,11 @@ func TCPServer(addr string, data []byte) error {
 		}
 		log.Printf("Accepted TCP connection from %s", conn.RemoteAddr())
 
-		// Handle each connection in a new goroutine.
+		// 各接続を新しいゴルーチンで処理します。
 		go func(c net.Conn) {
-			// Close the connection when the function returns.
+			// 関数が返るときに接続をクローズします。
 			defer c.Close()
-			// Write the data to the client.
+			// データをクライアントに書き込みます。
 			if _, err := c.Write(data); err != nil {
 				log.Printf("failed to write data to client: %v", err)
 			}
@@ -59,28 +59,28 @@ func TCPServer(addr string, data []byte) error {
 	}
 }
 
-// QUICServer starts a QUIC server on the given address. It sends the provided data
-// to any client that connects.
-func QUICServer(addr string, data []byte) error {
-	// Start the pprof server in a separate goroutine so it doesn't block.
+// RunQUICServer は、指定されたアドレスでQUICサーバーを開始します。接続してきたクライアントに
+// 提供されたデータを送信します。
+func RunQUICServer(addr string, data []byte) error {
+	// pprofサーバーを別のゴルーチンで開始し、ブロッキングしないようにします。
 	go pprofServer()
 
-	// Set up the TLS configuration for QUIC.
+	// QUICのためのTLS設定をセットアップします。
 	tlsConfig, err := tls.Setup()
 	if err != nil {
 		return fmt.Errorf("failed to setup TLS: %w", err)
 	}
 
-	// Listen for incoming QUIC connections.
+	// QUIC接続をリッスンします。
 	l, err := quic.ListenAddr(addr, tlsConfig, nil)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
-	// Close the listener when the application closes.
+	// アプリケーション終了時にリスナーをクローズします。
 	defer l.Close()
 	log.Printf("QUIC server listening on %s", addr)
 
-	// Loop forever, accepting new connections.
+	// 無限ループで新しい接続を受け入れます。
 	for {
 		conn, err := l.Accept(context.Background())
 		if err != nil {
@@ -89,18 +89,18 @@ func QUICServer(addr string, data []byte) error {
 		}
 		log.Printf("Accepted QUIC connection from %s", conn.RemoteAddr())
 
-		// Handle each connection in a new goroutine.
+		// 各接続を新しいゴルーチンで処理します。
 		go func(c *quic.Conn) {
-			// Open a new stream.
+			// 新しいストリームを開きます。
 			stream, err := c.OpenStreamSync(context.Background())
 			if err != nil {
 				log.Printf("failed to open stream: %v", err)
 				return
 			}
-			// Close the stream when the function returns.
+			// 関数が返るときにストリームをクローズします。
 			defer stream.Close()
 
-			// Write the data to the client.
+			// データをクライアントに書き込みます。
 			if _, err := stream.Write(data); err != nil {
 				log.Printf("failed to write data to client: %v", err)
 			}

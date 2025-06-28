@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Setup creates a new self-signed TLS configuration.
+// Setup は、新しい自己署名TLS設定を作成します。
 func Setup() (*tls.Config, error) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -37,6 +37,6 @@ func Setup() (*tls.Config, error) {
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{{Certificate: [][]byte{certDER}, PrivateKey: privKey}},
-		NextProtos:   []string{"quic-echo-example"},
+		NextProtos:   []string{"quic-speed-test"},
 	}, nil
 }
