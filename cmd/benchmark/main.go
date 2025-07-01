@@ -5,11 +5,17 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"github.com/Shinonome517/tcp-quic-bench/internal/client"
 	"github.com/Shinonome517/tcp-quic-bench/internal/data"
 	"github.com/Shinonome517/tcp-quic-bench/internal/server"
+)
+
+const (
+	warmupRuns      = 2  // ウォームアップ実行回数
+	measurementRuns = 10 // 計測実行回数
 )
 
 // main はアプリケーションのエントリーポイントです。
@@ -57,39 +63,115 @@ func runServer(proto, addr string) {
 
 func runClient(proto, addr string) {
 	var totalBytes int64
-	var duration time.Duration
-	var err error
+	handshakeDurations := make([]time.Duration, 0, measurementRuns)
+	dataTransferDurations := make([]time.Duration, 0, measurementRuns)
 
-	switch proto {
-	case "tcp":
-		totalBytes, duration, err = client.RunTCPClient(addr)
-	case "quic":
-		totalBytes, duration, err = client.RunQUICClient(addr)
-	default:
-		log.Fatalf("Unknown protocol: %s", proto)
+	log.Printf("Starting %s client with %d warmup runs and %d measurement runs...", proto, warmupRuns, measurementRuns)
+
+	for i := 0; i < warmupRuns+measurementRuns; i++ {
+		var hsDur, dtDur time.Duration
+		var err error
+		var bytes int64
+
+		switch proto {
+		case "tcp":
+			bytes, hsDur, dtDur, err = client.RunTCPClient(addr)
+		case "quic":
+			bytes, hsDur, dtDur, err = client.RunQUICClient(addr)
+		default:
+			log.Fatalf("Unknown protocol: %s", proto)
+		}
+
+		if err != nil {
+			log.Fatalf("Client run failed: %v", err)
+		}
+
+		if i == 0 { // 最初の実行で totalBytes を取得
+			totalBytes = bytes
+		}
+
+		if i >= warmupRuns {
+			handshakeDurations = append(handshakeDurations, hsDur)
+			dataTransferDurations = append(dataTransferDurations, dtDur)
+		}
+		time.Sleep(100 * time.Millisecond) // 各実行間の短い待機
 	}
 
-	if err != nil {
-		log.Fatalf("Client run failed: %v", err)
+	PrintResults(totalBytes, handshakeDurations, dataTransferDurations)
+}
+
+// calculateStatistics は time.Duration のスライスから平均値と標準偏差を計算します。
+func calculateStatistics(durations []time.Duration) (mean, stdDev time.Duration) {
+	if len(durations) == 0 {
+		return 0, 0
 	}
 
-	PrintResults(totalBytes, duration)
+	var sum float64
+	for _, d := range durations {
+		sum += d.Seconds()
+	}
+	meanSeconds := sum / float64(len(durations))
+
+	var sumSqDiff float64
+	for _, d := range durations {
+		diff := d.Seconds() - meanSeconds
+		sumSqDiff += diff * diff
+	}
+
+	variance := sumSqDiff / float64(len(durations))
+	stdDevSeconds := math.Sqrt(variance)
+
+	mean = time.Duration(meanSeconds * float64(time.Second))
+	stdDev = time.Duration(stdDevSeconds * float64(time.Second))
+	return
 }
 
 // PrintResults はベンチマーク結果を計算して表示します。
 // 総バイト数と時間からスループット（Gbps）を算出し、整形して標準出力に表示します。
-func PrintResults(totalBytes int64, duration time.Duration) {
-	durationSeconds := duration.Seconds()
-	if durationSeconds == 0 {
-		log.Println("Duration was zero, cannot calculate throughput.")
-		return
+func PrintResults(totalBytes int64, handshakeDurations, dataTransferDurations []time.Duration) {
+	handshakeMean, handshakeStdDev := calculateStatistics(handshakeDurations)
+	dataTransferMean, dataTransferStdDev := calculateStatistics(dataTransferDurations)
+
+	// 各実行の合計時間を計算し、その統計情報を取得
+	var totalDurations []time.Duration
+	for i := 0; i < len(handshakeDurations); i++ {
+		totalDurations = append(totalDurations, handshakeDurations[i]+dataTransferDurations[i])
 	}
-	// スループットをGbps (Giga-bits per second) で計算
-	throughputGbps := (float64(totalBytes) * 8) / (durationSeconds * 1e9)
+	totalMean, totalStdDev := calculateStatistics(totalDurations)
+
+	// 平均スループットの計算
+	// 各実行のスループットを計算し、その平均を取る
+	var throughputs []float64
+	for _, totalDur := range totalDurations {
+		totalDurSeconds := totalDur.Seconds()
+		if totalDurSeconds > 0 {
+			throughputs = append(throughputs, (float64(totalBytes)*8)/(totalDurSeconds*1e9))
+		}
+	}
+
+	var sumThroughput float64
+	for _, t := range throughputs {
+		sumThroughput += t
+	}
+	meanThroughput := sumThroughput / float64(len(throughputs))
 
 	fmt.Println("\n--- Benchmark Results ---")
-	fmt.Printf("Total bytes received: %d bytes\n", totalBytes)
-	fmt.Printf("Total time taken:     %.2fs\n", durationSeconds)
-	fmt.Printf("Throughput:           %.4f Gbps\n", throughputGbps)
+	fmt.Printf("Total bytes received per run: %d bytes\n", totalBytes)
+	fmt.Printf("Number of measurement runs: %d\n", len(handshakeDurations))
+	fmt.Println("-------------------------")
+
+	fmt.Printf("Handshake time (Mean):      %.4f s\n", handshakeMean.Seconds())
+	fmt.Printf("Handshake time (StdDev):    %.4f s\n", handshakeStdDev.Seconds())
+	fmt.Println("-------------------------")
+
+	fmt.Printf("Data transfer time (Mean):  %.4f s\n", dataTransferMean.Seconds())
+	fmt.Printf("Data transfer time (StdDev): %.4f s\n", dataTransferStdDev.Seconds())
+	fmt.Println("-------------------------")
+
+	fmt.Printf("Total time (Mean):          %.4f s\n", totalMean.Seconds())
+	fmt.Printf("Total time (StdDev):        %.4f s\n", totalStdDev.Seconds())
+	fmt.Println("-------------------------")
+
+	fmt.Printf("Throughput (Mean):          %.4f Gbps\n", meanThroughput)
 	fmt.Println("-------------------------")
 }
