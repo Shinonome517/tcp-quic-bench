@@ -12,8 +12,8 @@ import (
 	// pprofのためのブランクインポート。これはpprofをインクルードする標準的な方法です。
 	_ "net/http/pprof"
 
-	"github.com/quic-go/quic-go"
 	tlsutil "github.com/Shinonome517/tcp-quic-bench/internal/tls"
+	"github.com/quic-go/quic-go"
 	"golang.org/x/sys/unix"
 )
 

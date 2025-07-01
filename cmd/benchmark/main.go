@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -72,5 +73,23 @@ func runClient(proto, addr string) {
 		log.Fatalf("Client run failed: %v", err)
 	}
 
-	client.PrintResults(totalBytes, duration)
+	PrintResults(totalBytes, duration)
+}
+
+// PrintResults はベンチマーク結果を計算して表示します。
+// 総バイト数と時間からスループット（Gbps）を算出し、整形して標準出力に表示します。
+func PrintResults(totalBytes int64, duration time.Duration) {
+	durationSeconds := duration.Seconds()
+	if durationSeconds == 0 {
+		log.Println("Duration was zero, cannot calculate throughput.")
+		return
+	}
+	// スループットをGbps (Giga-bits per second) で計算
+	throughputGbps := (float64(totalBytes) * 8) / (durationSeconds * 1e9)
+
+	fmt.Println("\n--- Benchmark Results ---")
+	fmt.Printf("Total bytes received: %d bytes\n", totalBytes)
+	fmt.Printf("Total time taken:     %.2fs\n", durationSeconds)
+	fmt.Printf("Throughput:           %.4f Gbps\n", throughputGbps)
+	fmt.Println("-------------------------")
 }
