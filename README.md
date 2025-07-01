@@ -1,64 +1,75 @@
-# TCP vs QUIC パフォーマンスベンチマークツール
+# TCP vs QUIC Performance Benchmark Tool
 
-## 概要
+## Overview
 
-このツールは、TCPとQUICプロトコルのデータ転送性能を比較するためのベンチマーク・アプリケーションです。
+This tool helps you compare how fast TCP and QUIC protocols transfer data. It's a simple benchmark application.
 
-サーバーは指定されたプロトコル（TCPまたはQUIC）で起動し、1GBのランダムデータを生成して待機します。クライアントが接続すると、このデータをクライアントに送信します。
-クライアントは指定されたプロトコルでサーバーに接続し、データを受信します。受信完了後、転送にかかった時間、総受信バイト数、そしてスループット（Gbps）を計算して表示します。
+The server starts with a chosen protocol (TCP or QUIC) and creates 1GB of random data. When a client connects, the server sends this data to the client.
 
-## 実行方法
+The client connects to the server using the specified protocol and receives the data. After receiving all data, it calculates and shows the time taken, total bytes received, and throughput (in Gbps).
 
-実験は、サーバーとクライアントを別々のターミナルで実行する必要があります。
+## How to Run
 
-### 1. ビルド
+You need to run the server and client in separate terminal windows.
 
-まず、実行ファイルをビルドします。
+### 1. Build the Executable
+
+First, build the program:
 
 ```sh
 go build -o tcp-quic-bench cmd/benchmark/main.go
 ```
 
-### 2. サーバーの起動
+### 2. Start the Server
 
-次に、サーバーを起動します。プロトコルは `-proto` フラグで `tcp` または `quic` を指定できます。サーバーはバックグラウンドで実行することを推奨します（末尾に `&` を付けます）。
+Next, start the server. You can choose `tcp` or `quic` using the `-proto` flag. It's a good idea to run the server in the background (add `&` at the end).
 
-#### QUICサーバーの場合
+#### For QUIC Server
 
 ```sh
 ./tcp-quic-bench -mode server -proto quic &
 ```
 
-#### TCPサーバーの場合
+#### For TCP Server
 
 ```sh
 ./tcp-quic-bench -mode server -proto tcp &
 ```
 
-サーバーはデフォルトで `0.0.0.0:4242` で待機します。
+The server will listen on `127.0.0.1:4242` by default.
 
-### 3. クライアントの実行
+### 3. Run the Client
 
-サーバーが起動したら、クライアントを実行して性能を測定します。
+Once the server is running, run the client to measure performance.
 
-#### QUICクライアントの場合
+#### For QUIC Client
 
 ```sh
 ./tcp-quic-bench -mode client -proto quic -addr 127.0.0.1:4242
 ```
 
-#### TCPクライアントの場合
+#### For TCP Client
 
 ```sh
 ./tcp-quic-bench -mode client -proto tcp -addr 127.0.0.1:4242
 ```
 
-クライアントの実行が完了すると、ターミナルに以下のようなベンチマーク結果が出力されます。
+After the client finishes, you'll see benchmark results in your terminal, like this:
 
 ```
 --- Benchmark Results ---
-Total bytes received: 1073741824 bytes
-Total time taken:     10.53s
-Throughput:           0.8155 Gbps
+Total bytes received per run: 1073741824 bytes
+Number of measurement runs: 10
+-------------------------
+Handshake time (Mean):      0.0000 s
+Handshake time (StdDev):    0.0000 s
+-------------------------
+Data transfer time (Mean):  0.0000 s
+Data transfer time (StdDev): 0.0000 s
+-------------------------
+Total time (Mean):          0.0000 s
+Total time (StdDev):        0.0000 s
+-------------------------
+Throughput (Mean):          0.0000 Gbps
 -------------------------
 ```
