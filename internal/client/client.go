@@ -26,7 +26,7 @@ func RunTCPClient(addr string) (int64, time.Duration, error) {
 	}
 
 	// TCPサーバーにダイヤル
-    conn, err := tls.Dial("tcp", addr, tlsConf)
+	conn, err := tls.Dial("tcp", addr, tlsConf)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to connect to TCP server: %w", err)
 	}
@@ -60,8 +60,14 @@ func RunQUICClient(addr string) (int64, time.Duration, error) {
 		NextProtos:         []string{"tcp-quic-bench"},
 	}
 
+	// QUICの設定
+	quicConfig := &quic.Config{
+		DisablePathMTUDiscovery: true,
+		MaxIdleTimeout:          time.Minute,
+	}
+
 	// QUICサーバーにダイヤル
-	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, nil)
+	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, quicConfig)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to connect to QUIC server: %w", err)
 	}

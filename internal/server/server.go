@@ -3,16 +3,18 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
-	"crypto/tls"
+	"time"
 	// pprofのためのブランクインポート。これはpprofをインクルードする標準的な方法です。
 	_ "net/http/pprof"
 
 	"github.com/quic-go/quic-go"
 	tlsutil "github.com/Shinonome517/tcp-quic-bench/internal/tls"
+	"golang.org/x/sys/unix"
 )
 
 // pprofServer は、pprofデータを提供するためにlocalhost:6060でHTTPサーバーを開始します。
@@ -30,13 +32,13 @@ func RunTCPServer(addr string, data []byte) error {
 	// pprofサーバーを別のゴルーチンで開始し、ブロッキングしないようにします。
 	go pprofServer()
 
-    // TLS設定を取得（自己署名証明書）
-    tlsConfig, err := tlsutil.Setup()
-    if err != nil {
-        return fmt.Errorf("failed to setup TLS: %w", err)
-    }
-    // TLS付きのリスナーを生成
-    l, err := tls.Listen("tcp", addr, tlsConfig)
+	// TLS設定を取得（自己署名証明書）
+	tlsConfig, err := tlsutil.Setup()
+	if err != nil {
+		return fmt.Errorf("failed to setup TLS: %w", err)
+	}
+	// TLS付きのリスナーを生成
+	l, err := tls.Listen("tcp", addr, tlsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
@@ -51,6 +53,34 @@ func RunTCPServer(addr string, data []byte) error {
 			log.Printf("failed to accept connection: %v", err)
 			continue
 		}
+
+		// TCP接続のファイルディスクリプタを取得
+		tcpConn, ok := conn.(*tls.Conn).NetConn().(*net.TCPConn)
+		if !ok {
+			log.Printf("failed to get TCP connection")
+			conn.Close()
+			continue
+		}
+		rawConn, err := tcpConn.SyscallConn()
+		if err != nil {
+			log.Printf("failed to get raw connection: %v", err)
+			conn.Close()
+			continue
+		}
+
+		// MSSを1200に設定
+		err = rawConn.Control(func(fd uintptr) {
+			err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_MAXSEG, 1200)
+			if err != nil {
+				log.Printf("failed to set TCP_MAXSEG: %v", err)
+			}
+		})
+		if err != nil {
+			log.Printf("failed to control raw connection: %v", err)
+			conn.Close()
+			continue
+		}
+
 		log.Printf("Accepted TCP connection from %s", conn.RemoteAddr())
 
 		// 各接続を新しいゴルーチンで処理します。
@@ -77,8 +107,14 @@ func RunQUICServer(addr string, data []byte) error {
 		return fmt.Errorf("failed to setup TLS: %w", err)
 	}
 
+	// QUICの設定
+	quicConfig := &quic.Config{
+		DisablePathMTUDiscovery: true,
+		MaxIdleTimeout:          time.Minute,
+	}
+
 	// QUIC接続をリッスンします。
-	l, err := quic.ListenAddr(addr, tlsConfig, nil)
+	l, err := quic.ListenAddr(addr, tlsConfig, quicConfig)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
