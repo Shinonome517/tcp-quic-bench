@@ -37,49 +37,51 @@ func RunTCPServer(addr string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to setup TLS: %w", err)
 	}
-	// TLS付きのリスナーを生成
-	l, err := tls.Listen("tcp", addr, tlsConfig)
+
+	// TCPリスナーを生成
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
-	// アプリケーション終了時にリスナーをクローズします。
 	defer l.Close()
 	log.Printf("TCP server listening on %s", addr)
 
 	// 無限ループで新しい接続を受け入れます。
 	for {
-		conn, err := l.Accept()
+		rawConn, err := l.Accept()
 		if err != nil {
 			log.Printf("failed to accept connection: %v", err)
 			continue
 		}
 
-		// TCP接続のファイルディスクリプタを取得
-		tcpConn, ok := conn.(*tls.Conn).NetConn().(*net.TCPConn)
+		// TCP接続のファイルディスクリプタを取得し、MSSを設定
+		// TCPPayload1240 + IPHeader20 + TCPHeader20 = 1280
+		tcpConn, ok := rawConn.(*net.TCPConn)
 		if !ok {
 			log.Printf("failed to get TCP connection")
-			conn.Close()
+			rawConn.Close()
 			continue
 		}
-		rawConn, err := tcpConn.SyscallConn()
+		syscallConn, err := tcpConn.SyscallConn()
 		if err != nil {
-			log.Printf("failed to get raw connection: %v", err)
-			conn.Close()
+			log.Printf("failed to get syscall connection: %v", err)
+			rawConn.Close()
 			continue
 		}
-
-		// MSSを1200に設定
-		err = rawConn.Control(func(fd uintptr) {
-			err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_MAXSEG, 1200)
+		err = syscallConn.Control(func(fd uintptr) {
+			err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_MAXSEG, 1240) // MSSを1240に設定
 			if err != nil {
 				log.Printf("failed to set TCP_MAXSEG: %v", err)
 			}
 		})
 		if err != nil {
 			log.Printf("failed to control raw connection: %v", err)
-			conn.Close()
+			rawConn.Close()
 			continue
 		}
+
+		// TLSハンドシェイク
+		conn := tls.Server(rawConn, tlsConfig)
 
 		log.Printf("Accepted TCP connection from %s", conn.RemoteAddr())
 
@@ -108,6 +110,9 @@ func RunQUICServer(addr string, data []byte) error {
 	}
 
 	// QUICの設定
+	// DisablePathMTUDiscoveryをtrueに設定し、Path MTU Discovery（RFC 8899）を無効化
+	// InitialPacketSizeがquic.Configにはセットされ，それはprotocol.InitialPacketSize = 1280に対応する．
+	// UDPPayload1252 + IPHeader20 + UDPHeader8 = 1280
 	quicConfig := &quic.Config{
 		DisablePathMTUDiscovery: true,
 		MaxIdleTimeout:          time.Minute,

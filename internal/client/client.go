@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"time"
 
 	"github.com/quic-go/quic-go"
+	"golang.org/x/sys/unix"
 )
 
 // RunTCPClient はTCPサーバーに接続し、パフォーマンスを測定します。
@@ -19,16 +21,40 @@ func RunTCPClient(addr string) (int64, time.Duration, error) {
 	// 計測開始
 	startTime := time.Now()
 
-	// TCP接続のためのTLS設定
+	// TCP接続を確立
+	dialer := &net.Dialer{}
+	rawConn, err := dialer.Dial("tcp", addr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to dial TCP: %w", err)
+	}
+
+	// TCP接続のファイルディスクリプタを取得し、MSSを設定
+	tcpConn, ok := rawConn.(*net.TCPConn)
+	if !ok {
+		return 0, 0, fmt.Errorf("failed to get TCP connection")
+	}
+	syscallConn, err := tcpConn.SyscallConn()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get syscall connection: %w", err)
+	}
+	err = syscallConn.Control(func(fd uintptr) {
+		err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_MAXSEG, 1240) // MSSを1240に設定
+		if err != nil {
+			log.Printf("failed to set TCP_MAXSEG: %v", err)
+		}
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to control raw connection: %w", err)
+	}
+
+	// TLSハンドシェイク
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true, // サーバーは自己署名証明書のため検証をスキップ
 		NextProtos:         []string{"tcp-quic-bench"},
 	}
-
-	// TCPサーバーにダイヤル
-	conn, err := tls.Dial("tcp", addr, tlsConf)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to connect to TCP server: %w", err)
+	conn := tls.Client(rawConn, tlsConf)
+	if err := conn.Handshake(); err != nil {
+		return 0, 0, fmt.Errorf("failed to perform TLS handshake: %w", err)
 	}
 	defer conn.Close()
 
