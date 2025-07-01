@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -20,8 +19,14 @@ func RunTCPClient(addr string) (int64, time.Duration, error) {
 	// 計測開始
 	startTime := time.Now()
 
+	// TCP接続のためのTLS設定
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true, // サーバーは自己署名証明書のため検証をスキップ
+		NextProtos:         []string{"tcp-quic-bench"},
+	}
+
 	// TCPサーバーにダイヤル
-	conn, err := net.Dial("tcp", addr)
+    conn, err := tls.Dial("tcp", addr, tlsConf)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to connect to TCP server: %w", err)
 	}
@@ -46,14 +51,14 @@ func RunTCPClient(addr string) (int64, time.Duration, error) {
 // 受信したデータは破棄され、転送にかかった時間と総バイト数を返します。
 func RunQUICClient(addr string) (int64, time.Duration, error) {
 	log.Println("Connecting via QUIC...")
+	// 計測開始
+	startTime := time.Now()
+
 	// QUIC接続のためのTLS設定
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true, // サーバーは自己署名証明書のため検証をスキップ
-		NextProtos:         []string{"quic-speed-test"},
+		NextProtos:         []string{"tcp-quic-bench"},
 	}
-
-	// 計測開始
-	startTime := time.Now()
 
 	// QUICサーバーにダイヤル
 	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, nil)

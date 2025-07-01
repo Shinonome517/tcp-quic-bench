@@ -37,6 +37,6 @@ func Setup() (*tls.Config, error) {
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{{Certificate: [][]byte{certDER}, PrivateKey: privKey}},
-		NextProtos:   []string{"quic-speed-test"},
+		NextProtos:   []string{"tcp-quic-bench"},
 	}, nil
 }

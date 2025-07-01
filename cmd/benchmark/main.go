@@ -16,7 +16,7 @@ func main() {
 	// コマンドラインフラグを定義します。
 	mode := flag.String("mode", "server", "server or client")
 	proto := flag.String("proto", "quic", "tcp or quic")
-	addr := flag.String("addr", "0.0.0.0:4242", "address and port")
+	addr := flag.String("addr", "127.0.0.1:4242", "address and port")
 	flag.Parse()
 
 	// モードを確認し、対応するロジックを実行します。

@@ -7,11 +7,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"crypto/tls"
 	// pprofのためのブランクインポート。これはpprofをインクルードする標準的な方法です。
 	_ "net/http/pprof"
 
 	"github.com/quic-go/quic-go"
-	"github.com/Shinonome517/tcp-quic-bench/internal/tls"
+	tlsutil "github.com/Shinonome517/tcp-quic-bench/internal/tls"
 )
 
 // pprofServer は、pprofデータを提供するためにlocalhost:6060でHTTPサーバーを開始します。
@@ -29,8 +30,13 @@ func RunTCPServer(addr string, data []byte) error {
 	// pprofサーバーを別のゴルーチンで開始し、ブロッキングしないようにします。
 	go pprofServer()
 
-	// TCP接続をリッスンします。
-	l, err := net.Listen("tcp", addr)
+    // TLS設定を取得（自己署名証明書）
+    tlsConfig, err := tlsutil.Setup()
+    if err != nil {
+        return fmt.Errorf("failed to setup TLS: %w", err)
+    }
+    // TLS付きのリスナーを生成
+    l, err := tls.Listen("tcp", addr, tlsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
@@ -66,7 +72,7 @@ func RunQUICServer(addr string, data []byte) error {
 	go pprofServer()
 
 	// QUICのためのTLS設定をセットアップします。
-	tlsConfig, err := tls.Setup()
+	tlsConfig, err := tlsutil.Setup()
 	if err != nil {
 		return fmt.Errorf("failed to setup TLS: %w", err)
 	}
