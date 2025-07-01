@@ -1,4 +1,4 @@
-// server パッケージは、TCPおよびQUICサーバーを作成するための機能を提供します。
+// server パッケージは、TCPおよびQUICサーバーを作成するための機能を提供する。
 package server
 
 import (
@@ -17,8 +17,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// pprofServer は、pprofデータを提供するためにlocalhost:6060でHTTPサーバーを開始します。
-// この関数はブロッキングするため、別のゴルーチンで実行する必要があります。
+// pprofServer は、pprofデータを提供するためにlocalhost:6060でHTTPサーバーを開始する。
+// この関数はブロッキングするため、別のゴルーチンで実行する必要がある。
 func pprofServer() {
 	log.Println("Starting pprof server on :6060")
 	if err := http.ListenAndServe("localhost:6060", nil); err != nil {
@@ -26,8 +26,8 @@ func pprofServer() {
 	}
 }
 
-// RunTCPServer は、指定されたアドレスでTCPサーバーを開始します。接続してきたクライアントに
-// 提供されたデータを送信します。
+// RunTCPServer は、指定されたアドレスでTCPサーバーを開始する。接続してきたクライアントに
+// 提供されたデータを送信する。
 func RunTCPServer(addr string, data []byte) error {
 	// pprofサーバーを別のゴルーチンで開始し、ブロッキングしないようにします。
 	go pprofServer()
@@ -46,7 +46,7 @@ func RunTCPServer(addr string, data []byte) error {
 	defer l.Close()
 	log.Printf("TCP server listening on %s", addr)
 
-	// 無限ループで新しい接続を受け入れます。
+	// 無限ループで新しい接続を受け入れる。
 	for {
 		rawConn, err := l.Accept()
 		if err != nil {
@@ -85,11 +85,11 @@ func RunTCPServer(addr string, data []byte) error {
 
 		log.Printf("Accepted TCP connection from %s", conn.RemoteAddr())
 
-		// 各接続を新しいゴルーチンで処理します。
+		// 各接続を新しいゴルーチンで処理する。
 		go func(c net.Conn) {
-			// 関数が返るときに接続をクローズします。
+			// 関数が返るときに接続をクローズする。
 			defer c.Close()
-			// データをクライアントに書き込みます。
+			// データをクライアントに書き込む。
 			if _, err := c.Write(data); err != nil {
 				log.Printf("failed to write data to client: %v", err)
 			}
@@ -97,13 +97,13 @@ func RunTCPServer(addr string, data []byte) error {
 	}
 }
 
-// RunQUICServer は、指定されたアドレスでQUICサーバーを開始します。接続してきたクライアントに
-// 提供されたデータを送信します。
+// RunQUICServer は、指定されたアドレスでQUICサーバーを開始する。接続してきたクライアントに
+// 提供されたデータを送信する。
 func RunQUICServer(addr string, data []byte) error {
 	// pprofサーバーを別のゴルーチンで開始し、ブロッキングしないようにします。
 	go pprofServer()
 
-	// QUICのためのTLS設定をセットアップします。
+	// QUICのためのTLS設定をセットアップする。
 	tlsConfig, err := tlsutil.Setup()
 	if err != nil {
 		return fmt.Errorf("failed to setup TLS: %w", err)
@@ -118,16 +118,16 @@ func RunQUICServer(addr string, data []byte) error {
 		MaxIdleTimeout:          time.Minute,
 	}
 
-	// QUIC接続をリッスンします。
+	// QUIC接続をリッスンする。
 	l, err := quic.ListenAddr(addr, tlsConfig, quicConfig)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
-	// アプリケーション終了時にリスナーをクローズします。
+	// アプリケーション終了時にリスナーをクローズする。
 	defer l.Close()
 	log.Printf("QUIC server listening on %s", addr)
 
-	// 無限ループで新しい接続を受け入れます。
+	// 無限ループで新しい接続を受け入れる。
 	for {
 		conn, err := l.Accept(context.Background())
 		if err != nil {
@@ -136,18 +136,18 @@ func RunQUICServer(addr string, data []byte) error {
 		}
 		log.Printf("Accepted QUIC connection from %s", conn.RemoteAddr())
 
-		// 各接続を新しいゴルーチンで処理します。
+		// 各接続を新しいゴルーチンで処理する。
 		go func(c *quic.Conn) {
-			// 新しいストリームを開きます。
+			// 新しいストリームを開く。
 			stream, err := c.OpenStreamSync(context.Background())
 			if err != nil {
 				log.Printf("failed to open stream: %v", err)
 				return
 			}
-			// 関数が返るときにストリームをクローズします。
+			// 関数が返るときにストリームをクローズする。
 			defer stream.Close()
 
-			// データをクライアントに書き込みます。
+			// データをクライアントに書き込む。
 			if _, err := stream.Write(data); err != nil {
 				log.Printf("failed to write data to client: %v", err)
 			}

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Setup は、新しい自己署名TLS設定を作成します。
+// Setup は、新しい自己署名TLS設定を作成する。
 func Setup() (*tls.Config, error) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

@@ -13,9 +13,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// RunTCPClient はTCPサーバーに接続し、パフォーマンスを測定します。
-// 指定されたアドレスにTCP接続を試み、サーバーからのデータストリームを受信します。
-// 受信したデータは破棄され、転送にかかった時間と総バイト数を返します。
+// RunTCPClient はTCPサーバーに接続し、パフォーマンスを測定する。
+// 指定されたアドレスにTCP接続を試み、サーバーからのデータストリームを受信する。
+// 受信したデータは破棄され、転送にかかった時間と総バイト数を返す。
 func RunTCPClient(addr string) (int64, time.Duration, time.Duration, error) {
 	// TLS設定を作成（自己署名証明書を許容）
 	tlsConf := &tls.Config{
@@ -74,9 +74,9 @@ func RunTCPClient(addr string) (int64, time.Duration, time.Duration, error) {
 	return bytesCopied, handshakeDuration, dataTransferDuration, nil
 }
 
-// RunQUICClient はQUICサーバーに接続し、パフォーマンスを測定します。
-// 自己署名証明書を許容するTLS設定でQUIC接続を試み、サーバーからのストリームを受信します。
-// 受信したデータは破棄され、転送にかかった時間と総バイト数を返します。
+// RunQUICClient はQUICサーバーに接続し、パフォーマンスを測定する。
+// 自己署名証明書を許容するTLS設定でQUIC接続を試み、サーバーからのストリームを受信する。
+// 受信したデータは破棄され、転送にかかった時間と総バイト数を返す。
 func RunQUICClient(addr string) (int64, time.Duration, time.Duration, error) {
 	// QUIC接続のためのTLS設定
 	tlsConf := &tls.Config{

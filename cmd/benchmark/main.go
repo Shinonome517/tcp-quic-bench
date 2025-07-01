@@ -1,4 +1,4 @@
-// main パッケージは、TCPとQUICプロトコルのベンチマークを行うためのコマンドラインツールを提供します。
+// main パッケージは、TCPとQUICプロトコルのベンチマークを行うためのコマンドラインツールを提供する。
 package main
 
 import (
@@ -18,15 +18,15 @@ const (
 	measurementRuns = 10 // 計測実行回数
 )
 
-// main はアプリケーションのエントリーポイントです。
+// main はアプリケーションのエントリーポイントである。
 func main() {
-	// コマンドラインフラグを定義します。
+	// コマンドラインフラグを定義する。
 	mode := flag.String("mode", "server", "server or client")
 	proto := flag.String("proto", "quic", "tcp or quic")
 	addr := flag.String("addr", "127.0.0.1:4242", "address and port")
 	flag.Parse()
 
-	// モードを確認し、対応するロジックを実行します。
+	// モードを確認し、対応するロジックを実行する。
 	switch *mode {
 	case "server":
 		runServer(*proto, *addr)
@@ -100,7 +100,7 @@ func runClient(proto, addr string) {
 	PrintResults(totalBytes, handshakeDurations, dataTransferDurations)
 }
 
-// calculateStatistics は time.Duration のスライスから平均値と標準偏差を計算します。
+// calculateStatistics は time.Duration のスライスから平均値と標準偏差を計算する。
 func calculateStatistics(durations []time.Duration) (mean, stdDev time.Duration) {
 	if len(durations) == 0 {
 		return 0, 0
@@ -126,8 +126,8 @@ func calculateStatistics(durations []time.Duration) (mean, stdDev time.Duration)
 	return
 }
 
-// PrintResults はベンチマーク結果を計算して表示します。
-// 総バイト数と時間からスループット（Gbps）を算出し、整形して標準出力に表示します。
+// PrintResults はベンチマーク結果を計算して表示する。
+// 総バイト数と時間からスループット（Gbps）を算出し、整形して標準出力に表示する。
 func PrintResults(totalBytes int64, handshakeDurations, dataTransferDurations []time.Duration) {
 	handshakeMean, handshakeStdDev := calculateStatistics(handshakeDurations)
 	dataTransferMean, dataTransferStdDev := calculateStatistics(dataTransferDurations)
